@@ -36,6 +36,44 @@ export class ClaudeSettingTab extends PluginSettingTab {
 		const { containerEl } = this;
 		containerEl.empty();
 
+		// ── Instructions file ──────────────────────────────────
+		const instructionFile = (this.app as App & { vault: { getAbstractFileByPath: (p: string) => unknown } })
+			.vault.getAbstractFileByPath("CLAUDE.md");
+
+		new Setting(containerEl)
+			.setName("Vault instructions (CLAUDE.md)")
+			.setDesc(
+				instructionFile
+					? "Instructions file exists at vault root. Open it to edit your AI instructions."
+					: "No CLAUDE.md found. Create one with a starter template to customise how Claude behaves."
+			)
+			.addButton((btn) => {
+				if (instructionFile) {
+					btn.setButtonText("Open CLAUDE.md").onClick(() => {
+						const leaf = this.app.workspace.getLeaf(false);
+						const file = (this.app as App & { vault: { getAbstractFileByPath: (p: string) => unknown } })
+							.vault.getAbstractFileByPath("CLAUDE.md");
+						if (file) leaf.openFile(file as Parameters<typeof leaf.openFile>[0]);
+					});
+				} else {
+					btn.setButtonText("Create CLAUDE.md").setCta().onClick(async () => {
+						const created = await this.plugin.vaultInstructions?.createStarterTemplate();
+						if (created) {
+							new Notice("CLAUDE.md created at vault root.");
+							const leaf = this.app.workspace.getLeaf(false);
+							const file = (this.app as App & { vault: { getAbstractFileByPath: (p: string) => unknown } })
+								.vault.getAbstractFileByPath("CLAUDE.md");
+							if (file) leaf.openFile(file as Parameters<typeof leaf.openFile>[0]);
+						} else {
+							new Notice("CLAUDE.md already exists.");
+						}
+						this.display();
+					});
+				}
+			});
+
+		containerEl.createEl("hr");
+
 		new Setting(containerEl)
 			.setName("API key")
 			.setDesc("Your Anthropic API key. Stored locally in plugin data.")

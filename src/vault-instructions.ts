@@ -1,6 +1,6 @@
 import { App, TFile } from "obsidian";
 
-const INSTRUCTION_FILE = ".claude.md";
+const INSTRUCTION_FILE = "CLAUDE.md";
 
 export class VaultInstructions {
 	private app: App;
@@ -36,25 +36,59 @@ export class VaultInstructions {
 	}
 
 	/**
-	 * Create a starter CLAUDE.md at vault root.
+	 * Create a starter .claude.md at vault root.
+	 * Returns false if the file already exists.
 	 */
-	async createStarterTemplate(): Promise<void> {
+	async createStarterTemplate(): Promise<boolean> {
+		if (this.app.vault.getAbstractFileByPath(INSTRUCTION_FILE)) {
+			return false;
+		}
+
 		const template = `# Claude Instructions
 
+These instructions are automatically loaded by the Claude Assistant plugin on every request.
+Edit this file to customise how Claude behaves in your vault.
+
+---
+
+## About this vault
+- Purpose: [describe what this vault is for]
+- Main topics: [e.g. research, journaling, project management]
+- Primary language: [e.g. English]
+
 ## Writing style
-- Write in a clear, concise style
+- Be concise and clear
 - Use active voice
-- Keep paragraphs short
+- Match the tone already present in the note
+- Keep paragraphs short (3–4 sentences max)
+- Prefer plain language over jargon
 
-## Context
-- This vault is about: [describe your vault's purpose]
+## Formatting rules
+- Use Markdown headings (##, ###) to organise content
+- Use [[wikilinks]] for internal references, never plain URLs
+- Preserve existing YAML frontmatter — do not add or remove keys
+- Do not change formatting or structure unless explicitly asked
+- Bullet lists for enumerations; numbered lists only for steps
 
-## Rules
-- Do not change existing formatting unless asked
-- Preserve frontmatter in notes
-- Use wikilinks for internal references
+## Behaviour
+- When rewriting or improving text, preserve the original meaning
+- When summarising, include the key points and any action items
+- When continuing text, match the existing style and voice
+- If a task is ambiguous, ask a clarifying question before proceeding
+- Do not add disclaimers, caveats, or filler phrases like "Certainly!" or "Great question!"
+
+## Vault tools
+- You may read and search notes when relevant context is needed
+- Always show a summary of changes before creating or modifying files
+- Prefer editing existing notes over creating new ones unless asked
+
+## Off-limits
+- Do not delete notes or folders unless explicitly instructed
+- Do not share or reference content from one note in another without permission
 `;
+
 		await this.app.vault.create(INSTRUCTION_FILE, template);
+		return true;
 	}
 
 	private getInstructionPaths(activeFilePath?: string): string[] {

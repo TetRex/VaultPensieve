@@ -20,7 +20,7 @@ import { improveRewrite } from "./commands/improve-rewrite";
 export default class ClaudeAssistantPlugin extends Plugin {
 	settings: ClaudeAssistantSettings = DEFAULT_SETTINGS;
 	private client: ClaudeClient | null = null;
-	private vaultInstructions: VaultInstructions | null = null;
+	vaultInstructions: VaultInstructions | null = null;
 
 	async onload() {
 		await this.loadSettings();

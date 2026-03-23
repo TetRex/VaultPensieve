@@ -11,7 +11,7 @@ const MODELS = [
 ];
 
 interface ChatMessage {
-	role: "user" | "assistant" | "tool";
+	role: "user" | "assistant";
 	content: string;
 	outputTokens?: number;
 }
@@ -215,13 +215,7 @@ export class ClaudeChatView extends ItemView {
 				},
 				VAULT_TOOLS,
 				async (name: string, input: Record<string, unknown>) => {
-					const result = await toolExecutor(name, input);
-					this.displayMessages.push({
-						role: "tool",
-						content: `${name}: ${result}`,
-					});
-					this.renderMessages();
-					return result;
+					return toolExecutor(name, input);
 				}
 			);
 
@@ -256,14 +250,6 @@ export class ClaudeChatView extends ItemView {
 		}
 
 		for (const msg of this.displayMessages) {
-			if (msg.role === "tool") {
-				const toolDiv = this.messagesContainer.createDiv({ cls: "claude-tool-call" });
-				const icon = toolDiv.createSpan({ cls: "claude-tool-icon" });
-				setIcon(icon, "settings-2");
-				toolDiv.createSpan({ cls: "claude-tool-text", text: msg.content });
-				continue;
-			}
-
 			const row = this.messagesContainer.createDiv({ cls: `claude-msg-row ${msg.role}` });
 			const bubble = row.createDiv({ cls: "claude-msg-bubble" });
 
