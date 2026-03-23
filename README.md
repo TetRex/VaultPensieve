@@ -2,6 +2,10 @@
 
 An Obsidian plugin that integrates Claude AI directly into your vault. Chat with Claude in a sidebar, run writing commands on your notes, and let Claude read and modify your vault through tool calling.
 
+![Chat sidebar](.github/assets/chat.png)
+
+![Settings panel](.github/assets/settings.png)
+
 ---
 
 ## First Start
