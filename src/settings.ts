@@ -5,12 +5,18 @@ export interface ClaudeAssistantSettings {
 	apiKey: string;
 	model: string;
 	customSystemPrompt: string;
+	monthlyLimitDollars: number; // 0 = no limit
+	usageMonth: string;          // "2026-03"
+	usageDollars: number;        // accumulated spend this month
 }
 
 export const DEFAULT_SETTINGS: ClaudeAssistantSettings = {
 	apiKey: "",
 	model: "claude-sonnet-4-6",
 	customSystemPrompt: "",
+	monthlyLimitDollars: 0,
+	usageMonth: "",
+	usageDollars: 0,
 };
 
 const AVAILABLE_MODELS = [
@@ -80,6 +86,50 @@ export class ClaudeSettingTab extends PluginSettingTab {
 						await this.plugin.saveSettings();
 					})
 			);
+
+		new Setting(containerEl)
+			.setName("Monthly spending limit")
+			.setDesc("Stop sending requests when this dollar amount is reached in a calendar month. Set to 0 for no limit.")
+			.addText((text) =>
+				text
+					.setPlaceholder("0")
+					.setValue(
+						this.plugin.settings.monthlyLimitDollars > 0
+							? String(this.plugin.settings.monthlyLimitDollars)
+							: ""
+					)
+					.then((t) => {
+						t.inputEl.type = "number";
+						t.inputEl.min = "0";
+						t.inputEl.step = "0.5";
+						t.inputEl.style.width = "80px";
+					})
+					.onChange(async (value) => {
+						const parsed = parseFloat(value);
+						this.plugin.settings.monthlyLimitDollars =
+							isNaN(parsed) || parsed < 0 ? 0 : parsed;
+						await this.plugin.saveSettings();
+					})
+			)
+			.addButton((btn) =>
+				btn.setButtonText("Reset usage").onClick(async () => {
+					this.plugin.settings.usageDollars = 0;
+					this.plugin.settings.usageMonth = "";
+					await this.plugin.saveSettings();
+					new Notice("Usage counter reset.");
+					this.display();
+				})
+			);
+
+		const usageDollars = this.plugin.settings.usageDollars;
+		const limitDollars = this.plugin.settings.monthlyLimitDollars;
+		const usageDesc =
+			limitDollars > 0
+				? `$${usageDollars.toFixed(4)} used of $${limitDollars.toFixed(2)} this month`
+				: `$${usageDollars.toFixed(4)} used this month`;
+		new Setting(containerEl)
+			.setName("Current usage")
+			.setDesc(usageDesc);
 
 		new Setting(containerEl)
 			.setName("Test connection")

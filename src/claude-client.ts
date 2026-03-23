@@ -5,6 +5,7 @@ export interface StreamCallbacks {
 	onChunk?: (text: string) => void;
 	onComplete?: (fullText: string) => void;
 	onError?: (error: Error) => void;
+	onUsage?: (inputTokens: number, outputTokens: number) => void;
 }
 
 export interface ToolDefinition {
@@ -74,14 +75,24 @@ export class ClaudeClient {
 							fullText += delta.text;
 							callbacks.onChunk?.(delta.text);
 						}
-					} else if (event.type === "content_block_stop") {
-						const block = (await stream.finalMessage()).content[event.index];
-						if (block) {
-							if (block.type === "tool_use") {
-								toolCalls.push(block);
-							}
-						}
 					}
+				}
+
+				// Get final message once — extracts tool calls and usage
+				const finalMsg = await stream.finalMessage();
+
+				for (const block of finalMsg.content) {
+					if (block.type === "tool_use") {
+						toolCalls.push(block);
+					}
+				}
+
+				// Report token usage for cost tracking
+				if (finalMsg.usage) {
+					callbacks.onUsage?.(
+						finalMsg.usage.input_tokens,
+						finalMsg.usage.output_tokens
+					);
 				}
 
 				// Build assistant content blocks

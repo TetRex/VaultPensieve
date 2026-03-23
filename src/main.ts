@@ -1,4 +1,10 @@
 import { Notice, Plugin } from "obsidian";
+import type { ClaudeChatView } from "./chat-view";
+
+const MODEL_COSTS: Record<string, { input: number; output: number }> = {
+	"claude-sonnet-4-6": { input: 3.0 / 1_000_000, output: 15.0 / 1_000_000 },
+	"claude-haiku-4-5":  { input: 1.0 / 1_000_000, output: 5.0 / 1_000_000 },
+};
 import {
 	ClaudeAssistantSettings,
 	ClaudeSettingTab,
@@ -84,6 +90,54 @@ export default class ClaudeAssistantPlugin extends Plugin {
 	async saveSettings() {
 		await this.saveData(this.settings);
 		this.client = null;
+	}
+
+	/** Save data without invalidating the client (e.g. for usage updates). */
+	private async saveData_(data: unknown) {
+		await this.saveData(data);
+	}
+
+	calculateCost(model: string, inputTokens: number, outputTokens: number): number {
+		const costs = MODEL_COSTS[model] ?? MODEL_COSTS["claude-sonnet-4-6"];
+		return inputTokens * costs.input + outputTokens * costs.output;
+	}
+
+	async recordUsage(inputTokens: number, outputTokens: number): Promise<void> {
+		const currentMonth = new Date().toISOString().slice(0, 7); // "2026-03"
+
+		// Reset counter on new month
+		if (this.settings.usageMonth !== currentMonth) {
+			this.settings.usageMonth = currentMonth;
+			this.settings.usageDollars = 0;
+		}
+
+		this.settings.usageDollars += this.calculateCost(
+			this.settings.model,
+			inputTokens,
+			outputTokens
+		);
+		await this.saveData_(this.settings);
+
+		// Push update to the open chat view
+		this.refreshChatViewUsage();
+	}
+
+	isOverLimit(): boolean {
+		if (!this.settings.monthlyLimitDollars) return false;
+		return this.settings.usageDollars >= this.settings.monthlyLimitDollars;
+	}
+
+	getUsageInfo() {
+		return {
+			dollars: this.settings.usageDollars,
+			limitDollars: this.settings.monthlyLimitDollars,
+		};
+	}
+
+	private refreshChatViewUsage() {
+		for (const leaf of this.app.workspace.getLeavesOfType(CHAT_VIEW_TYPE)) {
+			(leaf.view as ClaudeChatView).updateUsageDisplay();
+		}
 	}
 
 	getClient(): ClaudeClient {

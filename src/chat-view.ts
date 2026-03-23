@@ -13,6 +13,7 @@ const MODELS = [
 interface ChatMessage {
 	role: "user" | "assistant" | "tool";
 	content: string;
+	outputTokens?: number;
 }
 
 export class ClaudeChatView extends ItemView {
@@ -28,6 +29,8 @@ export class ClaudeChatView extends ItemView {
 	private attachedNoteName: string | null = null;
 	private attachedNoteChip: HTMLElement | null = null;
 	private isStreaming = false;
+	private usageBarFill: HTMLElement | null = null;
+	private usageLabel: HTMLElement | null = null;
 
 	constructor(leaf: WorkspaceLeaf, plugin: ClaudeAssistantPlugin) {
 		super(leaf);
@@ -76,6 +79,13 @@ export class ClaudeChatView extends ItemView {
 			this.renderMessages();
 		});
 
+		// ── Usage bar ────────────────────────────────────────────
+		const usageRow = header.createDiv({ cls: "claude-usage-row" });
+		this.usageLabel = usageRow.createSpan({ cls: "claude-usage-label" });
+		const usageTrack = usageRow.createDiv({ cls: "claude-usage-track" });
+		this.usageBarFill = usageTrack.createDiv({ cls: "claude-usage-fill" });
+		this.updateUsageDisplay();
+
 		// ── Messages ─────────────────────────────────────────────
 		this.messagesContainer = container.createDiv({ cls: "claude-chat-messages" });
 		this.renderMessages();
@@ -97,17 +107,34 @@ export class ClaudeChatView extends ItemView {
 
 		const inputFooter = inputArea.createDiv({ cls: "claude-chat-input-footer" });
 
+		// Left side: attach button + note chip
+		const inputFooterLeft = inputFooter.createDiv({ cls: "claude-input-footer-left" });
+
 		// Attach button
-		this.attachBtn = inputFooter.createEl("button", {
+		this.attachBtn = inputFooterLeft.createEl("button", {
 			cls: "claude-attach-btn",
 			attr: { title: "Attach current note as context" },
 		});
 		setIcon(this.attachBtn, "paperclip");
 		this.attachBtn.createSpan({ text: " Attach note" });
 		this.attachBtn.addEventListener("click", () => {
-			this.attachNote = !this.attachNote;
-			this.attachBtn?.toggleClass("active", this.attachNote);
+			if (this.attachNote) {
+				this.clearAttach();
+			} else {
+				const activeFile = this.app.workspace.getActiveFile();
+				if (!activeFile) {
+					new Notice("No note is currently open.");
+					return;
+				}
+				this.attachNote = true;
+				this.attachedNoteName = activeFile.basename;
+				this.attachBtn?.toggleClass("active", true);
+				this.renderAttachChip(inputFooterLeft);
+			}
 		});
+
+		// Chip placeholder (rendered dynamically)
+		this.attachedNoteChip = inputFooterLeft.createDiv({ cls: "claude-note-chip hidden" });
 
 		// Send button
 		this.sendBtn = inputFooter.createEl("button", {
@@ -131,6 +158,13 @@ export class ClaudeChatView extends ItemView {
 		const text = this.inputEl.value.trim();
 		if (!text) return;
 
+		if (this.plugin.isOverLimit()) {
+			new Notice(
+				`Monthly spending limit of $${this.plugin.settings.monthlyLimitDollars.toFixed(2)} reached. Adjust the limit in settings.`
+			);
+			return;
+		}
+
 		this.inputEl.value = "";
 		this.autoResizeTextarea();
 		this.setStreaming(true);
@@ -142,8 +176,7 @@ export class ClaudeChatView extends ItemView {
 				const noteContent = await this.app.vault.read(activeFile);
 				userContent = `[Attached note: ${activeFile.path}]\n\n${noteContent}\n\n---\n\n${text}`;
 			}
-			this.attachNote = false;
-			this.attachBtn?.toggleClass("active", false);
+			this.clearAttach();
 		}
 
 		this.displayMessages.push({ role: "user", content: text });
@@ -174,6 +207,10 @@ export class ClaudeChatView extends ItemView {
 					},
 					onError: (error: Error) => {
 						new Notice(`Claude error: ${error.message}`);
+					},
+					onUsage: (inputTokens: number, outputTokens: number) => {
+						assistantMsg.outputTokens = outputTokens;
+						this.plugin.recordUsage(inputTokens, outputTokens);
 					},
 				},
 				VAULT_TOOLS,
@@ -232,9 +269,54 @@ export class ClaudeChatView extends ItemView {
 
 			if (msg.role === "assistant") {
 				MarkdownRenderer.render(this.app, msg.content || "…", bubble, "", this);
+				if (msg.outputTokens !== undefined) {
+					bubble.createDiv({
+						cls: "claude-msg-tokens",
+						text: `${msg.outputTokens} tokens`,
+					});
+				}
 			} else {
 				bubble.textContent = msg.content;
 			}
+		}
+	}
+
+	updateUsageDisplay() {
+		if (!this.usageLabel || !this.usageBarFill) return;
+		const { dollars, limitDollars } = this.plugin.getUsageInfo();
+
+		if (limitDollars > 0) {
+			const pct = Math.min(dollars / limitDollars, 1) * 100;
+			this.usageLabel.textContent = `$${dollars.toFixed(3)} / $${limitDollars.toFixed(2)}`;
+			this.usageBarFill.style.width = `${pct}%`;
+			this.usageBarFill.toggleClass("over-limit", dollars >= limitDollars);
+			this.usageBarFill.closest(".claude-usage-track")?.removeClass("hidden");
+		} else {
+			this.usageLabel.textContent = dollars > 0 ? `$${dollars.toFixed(3)} this month` : "";
+			this.usageBarFill.style.width = "0%";
+			this.usageBarFill.closest(".claude-usage-track")?.addClass("hidden");
+		}
+	}
+
+	private renderAttachChip(container: HTMLElement) {
+		if (!this.attachedNoteChip) return;
+		this.attachedNoteChip.empty();
+		this.attachedNoteChip.removeClass("hidden");
+		this.attachedNoteChip.createSpan({
+			cls: "claude-note-chip-name",
+			text: this.attachedNoteName ?? "",
+		});
+		const dismiss = this.attachedNoteChip.createSpan({ cls: "claude-note-chip-dismiss", text: "×" });
+		dismiss.addEventListener("click", () => this.clearAttach());
+	}
+
+	private clearAttach() {
+		this.attachNote = false;
+		this.attachedNoteName = null;
+		this.attachBtn?.toggleClass("active", false);
+		if (this.attachedNoteChip) {
+			this.attachedNoteChip.empty();
+			this.attachedNoteChip.addClass("hidden");
 		}
 	}
 
