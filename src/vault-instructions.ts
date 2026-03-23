@@ -82,6 +82,13 @@ Edit this file to customise how Claude behaves in your vault.
 - Always show a summary of changes before creating or modifying files
 - Prefer editing existing notes over creating new ones unless asked
 
+## Vault structure
+- Maintain an up-to-date mental map of the vault folder structure by observing it at the start of every session and whenever a new folder is created
+- When a new folder is created, immediately update your understanding of the vault structure so subsequent decisions reflect the latest layout
+- Before creating a new note, search the existing folder structure for a folder whose name or purpose matches the note's topic; if a matching folder is found, place the new note inside it
+- Only create a new folder for a note if no existing folder is relevant to the note's topic
+- When in doubt about folder placement, suggest the most relevant existing folder and ask for confirmation before creating a new one
+
 ## Off-limits
 - Do not delete notes or folders unless explicitly instructed
 - Do not share or reference content from one note in another without permission
