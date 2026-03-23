@@ -1,6 +1,6 @@
 import { App, TFile } from "obsidian";
 
-const INSTRUCTION_FILE = "CLAUDE.md";
+const INSTRUCTION_FILE = ".claude.md";
 
 export class VaultInstructions {
 	private app: App;
