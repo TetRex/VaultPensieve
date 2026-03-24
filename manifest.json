@@ -2,8 +2,9 @@
 	"id": "claudesidian",
 	"name": "Claudesidian",
 	"version": "1.0.0",
-	"minAppVersion": "1.0.0",
+	"minAppVersion": "1.4.0",
 	"description": "Claude AI writing assistant with chat sidebar, writing commands, and vault tools",
-	"author": "Kyrylo Luhinin",
-	"isDesktopOnly": false
+	"author": "TetRex",
+	"authorUrl": "https://github.com/TetRex/Claudesidian",
+	"isDesktopOnly": true
 }
