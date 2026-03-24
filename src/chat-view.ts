@@ -148,7 +148,7 @@ export class ClaudeChatView extends ItemView {
 		this.inputEl = inputRow.createEl("textarea", {
 			cls: "claude-chat-textarea",
 			attr: {
-				placeholder: Platform.isMobile ? "Message Claude…" : "Message Claude… (Enter to send)",
+				placeholder: Platform.isMobile ? "Message Claude…" : "Message Claude…",
 				rows: "1",
 			},
 		});

@@ -1,6 +1,5 @@
 import esbuild from "esbuild";
 import process from "process";
-import builtins from "builtin-modules";
 
 const prod = process.argv[2] === "production";
 
@@ -9,7 +8,6 @@ const context = await esbuild.context({
 	bundle: true,
 	external: [
 		"obsidian",
-		"electron",
 		"@codemirror/autocomplete",
 		"@codemirror/collab",
 		"@codemirror/commands",
@@ -21,7 +19,6 @@ const context = await esbuild.context({
 		"@lezer/common",
 		"@lezer/highlight",
 		"@lezer/lr",
-		...builtins,
 	],
 	platform: "browser",
 	format: "cjs",
