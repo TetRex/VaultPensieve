@@ -39,7 +39,7 @@ export async function improveRewrite(
 					},
 				}
 			);
-		} catch (_e) {
+		} catch {
 			modal.finishStreaming();
 		}
 

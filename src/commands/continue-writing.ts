@@ -40,7 +40,7 @@ export async function continueWriting(
 					},
 				}
 			);
-		} catch (_e) {
+		} catch {
 			modal.finishStreaming();
 		}
 
