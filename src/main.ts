@@ -11,7 +11,9 @@ import {
 	ClaudeSettingTab,
 	DEFAULT_SETTINGS,
 } from "./settings";
+import type { AIClient } from "./claude-client";
 import { ClaudeClient } from "./claude-client";
+import { OllamaClient } from "./ollama-client";
 import { ClaudeChatView, CHAT_VIEW_TYPE } from "./chat-view";
 import { VaultInstructions } from "./vault-instructions";
 import { continueWriting } from "./commands/continue-writing";
@@ -20,7 +22,7 @@ import { improveRewrite } from "./commands/improve-rewrite";
 
 export default class ClaudeAssistantPlugin extends Plugin {
 	settings: ClaudeAssistantSettings = DEFAULT_SETTINGS;
-	private client: ClaudeClient | null = null;
+	private client: AIClient | null = null;
 	vaultInstructions: VaultInstructions | null = null;
 	private structureUpdateTimer: number | null = null;
 
@@ -119,6 +121,9 @@ export default class ClaudeAssistantPlugin extends Plugin {
 	}
 
 	async recordUsage(inputTokens: number, outputTokens: number): Promise<void> {
+		// Local Ollama models have no cost — skip tracking
+		if (this.settings.provider === "ollama") return;
+
 		const currentMonth = new Date().toISOString().slice(0, 7); // "2026-03"
 
 		// Reset counter on new month
@@ -139,6 +144,7 @@ export default class ClaudeAssistantPlugin extends Plugin {
 	}
 
 	isOverLimit(): boolean {
+		if (this.settings.provider === "ollama") return false;
 		if (!this.settings.monthlyLimitDollars) return false;
 		return this.settings.usageDollars >= this.settings.monthlyLimitDollars;
 	}
@@ -156,17 +162,24 @@ export default class ClaudeAssistantPlugin extends Plugin {
 		}
 	}
 
-	getClient(): ClaudeClient {
+	getClient(): AIClient {
 		if (!this.client) {
-			if (!this.settings.apiKey) {
-				throw new Error(
-					"API key not configured. Please set it in plugin settings."
+			if (this.settings.provider === "ollama") {
+				this.client = new OllamaClient(
+					this.settings.ollamaBaseUrl,
+					this.settings.ollamaModel
+				);
+			} else {
+				if (!this.settings.apiKey) {
+					throw new Error(
+						"API key not configured. Please set it in plugin settings."
+					);
+				}
+				this.client = new ClaudeClient(
+					this.settings.apiKey,
+					this.settings.model
 				);
 			}
-			this.client = new ClaudeClient(
-				this.settings.apiKey,
-				this.settings.model
-			);
 		}
 		return this.client;
 	}

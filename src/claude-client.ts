@@ -18,7 +18,18 @@ export interface ToolExecutor {
 	(name: string, input: Record<string, unknown>): Promise<string>;
 }
 
-export class ClaudeClient {
+export interface AIClient {
+	testConnection(): Promise<void>;
+	streamMessage(
+		systemPrompt: string,
+		messages: MessageParam[],
+		callbacks: StreamCallbacks,
+		tools?: ToolDefinition[],
+		toolExecutor?: ToolExecutor
+	): Promise<MessageParam[]>;
+}
+
+export class ClaudeClient implements AIClient {
 	private client: Anthropic;
 	private model: string;
 

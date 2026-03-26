@@ -67,12 +67,21 @@ export class ClaudeChatView extends ItemView {
 
 		// Model selector
 		this.modelSelect = headerActions.createEl("select", { cls: "claude-model-select" });
-		for (const m of MODELS) {
-			const opt = this.modelSelect.createEl("option", { text: m.label, value: m.value });
-			if (m.value === this.plugin.settings.model) opt.selected = true;
+		if (this.plugin.settings.provider === "ollama") {
+			const opt = this.modelSelect.createEl("option", {
+				text: this.plugin.settings.ollamaModel,
+				value: this.plugin.settings.ollamaModel,
+			});
+			opt.selected = true;
+			this.modelSelect.disabled = true;
+		} else {
+			for (const m of MODELS) {
+				const opt = this.modelSelect.createEl("option", { text: m.label, value: m.value });
+				if (m.value === this.plugin.settings.model) opt.selected = true;
+			}
 		}
 		this.modelSelect.addEventListener("change", () => void (async () => {
-			if (!this.modelSelect) return;
+			if (!this.modelSelect || this.plugin.settings.provider === "ollama") return;
 			const modelValue = this.modelSelect.value;
 			this.plugin.settings.model = modelValue;
 			await this.plugin.saveSettings();
@@ -148,7 +157,7 @@ export class ClaudeChatView extends ItemView {
 		this.inputEl = inputRow.createEl("textarea", {
 			cls: "claude-chat-textarea",
 			attr: {
-				placeholder: Platform.isMobile ? "Message Claude…" : "Message Claude…",
+				placeholder: Platform.isMobile ? "Message AI…" : "Message AI…",
 				rows: "1",
 			},
 		});
