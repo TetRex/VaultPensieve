@@ -52,7 +52,7 @@ export const VAULT_TOOLS: ToolDefinition[] = [
 	},
 	{
 		name: "update_note",
-		description: "Replace the entire content of an existing note.",
+		description: "Replace the entire content of an existing note. Call read_note first if you need to preserve any existing content.",
 		input_schema: {
 			type: "object",
 			properties: {

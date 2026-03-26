@@ -213,7 +213,16 @@ export default class VaultPensievePlugin extends Plugin {
 
 	async buildSystemPrompt(): Promise<string> {
 		const basePrompt = this.settings.provider === "ollama"
-			? "You are a helpful AI assistant integrated into Obsidian. You help the user with writing, organizing, and managing their notes. You have access to vault tools to read and modify files when asked."
+			? `You are a helpful AI assistant integrated into Obsidian. You help the user with writing, organizing, and managing their notes.
+
+You have access to vault tools. You MUST use them for any file operation — never write note content in your reply when a tool should be used instead.
+
+Rules:
+- To create a note: call create_note. Do NOT write the note content as text in your response.
+- To edit or append to a note: call update_note. Do NOT describe the changes — make them.
+- To answer questions about vault content: call read_note or search_notes first.
+- To find files: call list_files or get_vault_structure.
+- Only respond with text for conversation, explanations, or when no tool is needed.`
 			: "You are Claude, an AI assistant integrated into Obsidian. You help the user with writing, organizing, and managing their notes. You have access to vault tools to read and modify files when asked.";
 		const parts: string[] = [basePrompt];
 
