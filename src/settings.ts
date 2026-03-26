@@ -1,5 +1,6 @@
 import type { App} from "obsidian";
-import { Notice, PluginSettingTab, Setting } from "obsidian";
+import { Notice, Platform, PluginSettingTab, Setting } from "obsidian";
+import { shell } from "electron";
 import type VaultPensievePlugin from "./main";
 
 export type AIProvider = "anthropic" | "ollama";
@@ -33,6 +34,15 @@ const AVAILABLE_MODELS = [
 	{ value: "claude-haiku-4-5", label: "Claude Haiku 4.5" },
 ];
 
+const RECOMMENDED_OLLAMA_MODELS = [
+	{ name: "qwen2.5:7b",   size: "~4.7 GB", desc: "Best tool calling at 7B" },
+	{ name: "qwen2.5:3b",   size: "~2 GB",   desc: "Smallest with reliable tool calling" },
+	{ name: "llama3.2:3b",  size: "~2 GB",   desc: "Meta's small model, good instructions" },
+	{ name: "llama3.1:8b",  size: "~4.7 GB", desc: "Well-tested, reliable tool use" },
+	{ name: "gemma3:4b",    size: "~3.3 GB", desc: "Google's latest, good quality for the size" },
+	{ name: "phi4-mini",    size: "~2.5 GB", desc: "Microsoft's small model, strong reasoning" },
+];
+
 export class VaultPensieveSettingTab extends PluginSettingTab {
 	plugin: VaultPensievePlugin;
 
@@ -43,6 +53,53 @@ export class VaultPensieveSettingTab extends PluginSettingTab {
 
 	display(): void {
 		void this.renderAsync();
+	}
+
+	private async pullOllamaModel(
+		modelName: string,
+		onProgress: (status: string, pct: number | null) => void
+	): Promise<void> {
+		let response: Response;
+		try {
+			response = await fetch(`${this.plugin.settings.ollamaBaseUrl}/api/pull`, {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ name: modelName, stream: true }),
+			});
+		} catch {
+			throw new Error(`Cannot connect to Ollama at ${this.plugin.settings.ollamaBaseUrl}.`);
+		}
+		if (!response.ok) {
+			throw new Error(`Ollama returned ${response.status} ${response.statusText}`);
+		}
+
+		const reader = response.body?.getReader();
+		if (!reader) throw new Error("No response body");
+
+		const decoder = new TextDecoder();
+		let buffer = "";
+
+		try {
+			while (true) {
+				const { done, value } = await reader.read();
+				if (done) break;
+				buffer += decoder.decode(value, { stream: true });
+				const lines = buffer.split("\n");
+				buffer = lines.pop() ?? "";
+				for (const line of lines) {
+					if (!line.trim()) continue;
+					let data: { status?: string; total?: number; completed?: number; error?: string };
+					try { data = JSON.parse(line); } catch { continue; }
+					if (data.error) throw new Error(data.error);
+					const pct = (data.total && data.completed != null)
+						? Math.round((data.completed / data.total) * 100)
+						: null;
+					onProgress(data.status ?? "", pct);
+				}
+			}
+		} finally {
+			reader.releaseLock();
+		}
 	}
 
 	private async fetchOllamaModels(): Promise<string[]> {
@@ -147,6 +204,26 @@ export class VaultPensieveSettingTab extends PluginSettingTab {
 				});
 		} else {
 
+			new Setting(containerEl)
+				.setName("Get Ollama")
+				.setDesc("Ollama runs AI models locally on your machine. Download and install it, then restart Obsidian.")
+				.addButton(btn => {
+					let url = "https://ollama.com/download";
+					let label = "Download Ollama";
+					if (Platform.isMacOS) {
+						url = "https://ollama.com/download/Ollama-darwin.zip";
+						label = "Download for macOS";
+					} else if (Platform.isWin) {
+						url = "https://ollama.com/download/OllamaSetup.exe";
+						label = "Download for Windows";
+					} else {
+						label = "Download for Linux";
+					}
+					btn.setButtonText(label).onClick(() => {
+						void shell.openExternal(url);
+					});
+				});
+
 			if (ollamaModels.length > 0) {
 				new Setting(containerEl)
 					.setName("Ollama model")
@@ -183,6 +260,58 @@ export class VaultPensieveSettingTab extends PluginSettingTab {
 								await this.plugin.saveSettings();
 							})
 					);
+			}
+
+			new Setting(containerEl)
+				.setName("Recommended models")
+				.setDesc("Models with reliable tool calling for vault operations. Requires Ollama to be running.");
+
+			const modelList = containerEl.createDiv({ cls: "claude-model-list" });
+
+			for (const rec of RECOMMENDED_OLLAMA_MODELS) {
+				const installed = ollamaModels.includes(rec.name);
+
+				const item = modelList.createDiv({ cls: "claude-model-item" });
+
+				const info = item.createDiv({ cls: "claude-model-info" });
+				info.createSpan({ cls: "claude-model-name", text: rec.name });
+				const meta = info.createDiv({ cls: "claude-model-meta" });
+				meta.createSpan({ cls: "claude-model-size", text: rec.size });
+				meta.createSpan({ cls: "claude-model-desc", text: rec.desc });
+
+				const btnWrap = item.createDiv({ cls: "claude-model-btn-wrap" });
+				const btn = btnWrap.createEl("button", {
+					text: installed ? "Installed" : "Pull",
+					cls: `claude-model-btn${installed ? " installed" : ""}`,
+				});
+				const progressEl = btnWrap.createDiv({ cls: "claude-model-progress hidden" });
+
+				if (installed) {
+					btn.disabled = true;
+				} else {
+					btn.addEventListener("click", () => void (async () => {
+						btn.disabled = true;
+						btn.textContent = "Pulling…";
+						progressEl.removeClass("hidden");
+						try {
+							await this.pullOllamaModel(rec.name, (status, pct) => {
+								btn.textContent = pct !== null ? `${pct}%` : "Pulling…";
+								progressEl.textContent = status;
+							});
+							btn.textContent = "Installed";
+							btn.addClass("installed");
+							progressEl.addClass("hidden");
+							new Notice(`${rec.name} pulled successfully.`);
+							this.display();
+						} catch (e) {
+							const msg = e instanceof Error ? e.message : "Pull failed";
+							new Notice(`Failed to pull ${rec.name}: ${msg}`);
+							btn.disabled = false;
+							btn.textContent = "Retry";
+							progressEl.addClass("hidden");
+						}
+					})());
+				}
 			}
 		}
 

@@ -72,12 +72,13 @@ export class ClaudeChatView extends ItemView {
 		// Model selector
 		this.modelSelect = headerActions.createEl("select", { cls: "claude-model-select" });
 		if (this.plugin.settings.provider === "ollama") {
-			const opt = this.modelSelect.createEl("option", {
+			// Populate with the saved model immediately, then fetch full list async
+			this.modelSelect.createEl("option", {
 				text: this.plugin.settings.ollamaModel,
 				value: this.plugin.settings.ollamaModel,
+				attr: { selected: "true" },
 			});
-			opt.selected = true;
-			this.modelSelect.disabled = true;
+			void this.populateOllamaModels();
 		} else {
 			for (const m of MODELS) {
 				const opt = this.modelSelect.createEl("option", { text: m.label, value: m.value });
@@ -85,12 +86,18 @@ export class ClaudeChatView extends ItemView {
 			}
 		}
 		this.modelSelect.addEventListener("change", () => void (async () => {
-			if (!this.modelSelect || this.plugin.settings.provider === "ollama") return;
+			if (!this.modelSelect) return;
 			const modelValue = this.modelSelect.value;
-			this.plugin.settings.model = modelValue;
-			await this.plugin.saveSettings();
-			const label = MODELS.find(m => m.value === modelValue)?.label;
-			new Notice(`Switched to ${label}`);
+			if (this.plugin.settings.provider === "ollama") {
+				this.plugin.settings.ollamaModel = modelValue;
+				await this.plugin.saveSettings();
+				new Notice(`Switched to ${modelValue}`);
+			} else {
+				this.plugin.settings.model = modelValue;
+				await this.plugin.saveSettings();
+				const label = MODELS.find(m => m.value === modelValue)?.label;
+				new Notice(`Switched to ${label}`);
+			}
 		})());
 
 		// History button
@@ -241,6 +248,32 @@ export class ClaudeChatView extends ItemView {
 	}
 
 	onClose() {}
+
+	private async populateOllamaModels() {
+		if (!this.modelSelect) return;
+		try {
+			const response = await fetch(`${this.plugin.settings.ollamaBaseUrl}/api/tags`);
+			if (!response.ok) return;
+			const data = await response.json() as { models?: Array<{ name: string }> };
+			const models = (data.models ?? []).map(m => m.name);
+			if (models.length === 0) return;
+
+			this.modelSelect.empty();
+			for (const m of models) {
+				this.modelSelect.createEl("option", { text: m, value: m });
+			}
+			// Ensure saved model is selectable even if not in the fetched list
+			if (!models.includes(this.plugin.settings.ollamaModel)) {
+				this.modelSelect.createEl("option", {
+					text: this.plugin.settings.ollamaModel,
+					value: this.plugin.settings.ollamaModel,
+				});
+			}
+			this.modelSelect.value = this.plugin.settings.ollamaModel;
+		} catch {
+			// Ollama unreachable — leave the single saved-model option in place
+		}
+	}
 
 	private saveCurrentChat() {
 		if (this.displayMessages.length === 0) return;
