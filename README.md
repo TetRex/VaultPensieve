@@ -53,23 +53,11 @@ You can switch models directly from the chat sidebar at any time.
 
 Ollama runs AI models on your own machine. No API key or internet connection required.
 
-1. Click **Download Ollama** in settings — this opens the installer for your OS.
-2. Install and launch Ollama.
-3. In the **Recommended models** list, click **Pull** next to a model to download it.
-4. Click **Test** to confirm Ollama is reachable.
+1. [Download and install Ollama](https://ollama.com/download) for your OS.
+2. Launch Ollama and pull the recommended model: `ollama pull gemma4`
+3. Click **Test** in settings to confirm Ollama is reachable.
 
-Recommended models:
-
-| Model | Size | Notes |
-|---|---|---|
-| `qwen2.5:7b` | ~4.7 GB | Best tool calling at 7B |
-| `qwen2.5:3b` | ~2 GB | Smallest with reliable tool calling |
-| `llama3.2:3b` | ~2 GB | Meta's small model, good instructions |
-| `llama3.1:8b` | ~4.7 GB | Well-tested, reliable tool use |
-| `gemma3:4b` | ~3.3 GB | Google's latest, good quality for the size |
-| `phi4-mini` | ~2.5 GB | Microsoft's small model, strong reasoning |
-
-Tool calling (reading/writing notes) requires a model that supports function calling. The models above are tested to work well.
+The default model is `gemma4`. You can change it in the Ollama model dropdown or enter any model name manually. Tool calling (reading/writing notes) requires a model that supports native function calling.
 
 ---
 
@@ -185,9 +173,7 @@ Usage recorded (Anthropic only: tokens → dollars, persisted monthly)
 | AI provider | Anthropic (Claude) or Ollama (local) |
 | API key | Your Anthropic API key. Stored in plugin data, never logged |
 | Model | Claude Sonnet 4.6 or Haiku 4.5 (Anthropic) |
-| Get Ollama | Opens the Ollama installer download for your OS |
 | Ollama model | Select from models installed in Ollama, or enter a name manually |
-| Recommended models | Pull supported models directly from the settings page |
 | Custom system prompt | Extra instructions appended to every request |
 | Monthly spending limit | Block requests above this dollar amount — 0 = no limit (Anthropic only) |
 | Current usage | Dollars spent this calendar month (Anthropic only) |
