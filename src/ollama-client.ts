@@ -152,53 +152,68 @@ export class OllamaClient implements AIClient {
 
 			const decoder = new TextDecoder();
 			let fullText = "";
+			let sseBuffer = "";
 			const toolCallAccum = new Map<number, { id: string; name: string; arguments: string }>();
+
+			const processSseLine = (line: string) => {
+				if (!line.startsWith("data: ")) return;
+				const data = line.slice(6).trim();
+				if (data === "[DONE]") return;
+
+				let parsed: Record<string, unknown>;
+				try {
+					parsed = JSON.parse(data);
+				} catch {
+					return;
+				}
+
+				const choices = parsed.choices as Array<{ delta: Record<string, unknown> }> | undefined;
+				const delta = choices?.[0]?.delta;
+				if (!delta) return;
+
+				if (typeof delta.content === "string") {
+					fullText += delta.content;
+					callbacks.onChunk?.(delta.content);
+				}
+
+				const tcs = delta.tool_calls as Array<{
+					index?: number;
+					id?: string;
+					function?: { name?: string; arguments?: string };
+				}> | undefined;
+
+				if (!tcs) return;
+
+				for (const tc of tcs) {
+					const idx = tc.index ?? 0;
+					if (!toolCallAccum.has(idx)) {
+						toolCallAccum.set(idx, { id: "", name: "", arguments: "" });
+					}
+
+					const acc = toolCallAccum.get(idx);
+					if (!acc) continue;
+
+					if (tc.id) acc.id = tc.id;
+					if (tc.function?.name) acc.name = tc.function.name;
+					if (tc.function?.arguments) acc.arguments += tc.function.arguments;
+				}
+			};
 
 			try {
 				while (true) {
 					const { done, value } = await reader.read();
-					if (done) break;
+					sseBuffer += decoder.decode(value, { stream: !done });
 
-					const chunk = decoder.decode(value, { stream: true });
-					for (const line of chunk.split("\n")) {
-						if (!line.startsWith("data: ")) continue;
-						const data = line.slice(6).trim();
-						if (data === "[DONE]") continue;
+					const lines = sseBuffer.split("\n");
+					sseBuffer = done ? "" : (lines.pop() ?? "");
 
-						let parsed: Record<string, unknown>;
-						try {
-							parsed = JSON.parse(data);
-						} catch {
-							continue;
-						}
+					for (const line of lines) {
+						processSseLine(line);
+					}
 
-						const choices = parsed.choices as Array<{ delta: Record<string, unknown> }> | undefined;
-						const delta = choices?.[0]?.delta;
-						if (!delta) continue;
-
-						if (typeof delta.content === "string") {
-							fullText += delta.content;
-							callbacks.onChunk?.(delta.content);
-						}
-
-						const tcs = delta.tool_calls as Array<{
-							index?: number;
-							id?: string;
-							function?: { name?: string; arguments?: string };
-						}> | undefined;
-
-						if (tcs) {
-							for (const tc of tcs) {
-								const idx = tc.index ?? 0;
-								if (!toolCallAccum.has(idx)) {
-									toolCallAccum.set(idx, { id: "", name: "", arguments: "" });
-								}
-								const acc = toolCallAccum.get(idx)!;
-								if (tc.id) acc.id = tc.id;
-								if (tc.function?.name) acc.name = tc.function.name;
-								if (tc.function?.arguments) acc.arguments += tc.function.arguments;
-							}
-						}
+					if (done) {
+						if (sseBuffer.trim()) processSseLine(sseBuffer);
+						break;
 					}
 				}
 			} finally {

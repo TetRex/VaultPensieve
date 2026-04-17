@@ -451,7 +451,7 @@ export class ClaudeChatView extends ItemView {
 						this.scrollToBottom();
 					},
 					onError: (error: Error) => {
-						new Notice(`Claude error: ${error.message}`);
+						new Notice(`AI error: ${error.message}`);
 					},
 					onUsage: (inputTokens: number, outputTokens: number) => {
 						assistantMsg.outputTokens = outputTokens;
