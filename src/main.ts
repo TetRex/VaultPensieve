@@ -4,8 +4,12 @@ import type { ClaudeChatView } from "./chat-view";
 import { handleFastAnswer } from "./commands/fast-answer";
 
 const MODEL_COSTS: Record<string, { input: number; output: number }> = {
-	"claude-sonnet-4-6": { input: 3.0 / 1_000_000, output: 15.0 / 1_000_000 },
-	"claude-haiku-4-5":  { input: 1.0 / 1_000_000, output: 5.0 / 1_000_000 },
+	"anthropic:claude-sonnet-4-6": { input: 3.0 / 1_000_000, output: 15.0 / 1_000_000 },
+	"anthropic:claude-haiku-4-5":  { input: 1.0 / 1_000_000, output: 5.0 / 1_000_000 },
+	"openai:gpt-5.4": { input: 2.5 / 1_000_000, output: 15.0 / 1_000_000 },
+	"openai:gpt-5.4-mini": { input: 0.75 / 1_000_000, output: 4.5 / 1_000_000 },
+	"openai:gpt-5.4-nano": { input: 0.2 / 1_000_000, output: 1.25 / 1_000_000 },
+	"openai:gpt-5-mini": { input: 0.25 / 1_000_000, output: 2.0 / 1_000_000 },
 };
 import type {
 	VaultPensieveSettings} from "./settings";
@@ -16,6 +20,8 @@ import {
 import type { AIClient } from "./claude-client";
 import { ClaudeClient } from "./claude-client";
 import { OllamaClient } from "./ollama-client";
+import { OpenAIClient } from "./openai-client";
+import { OpenRouterClient } from "./openrouter-client";
 import { ClaudeChatView, CHAT_VIEW_TYPE } from "./chat-view";
 import { continueWriting } from "./commands/continue-writing";
 import { summarizeNote } from "./commands/summarize-note";
@@ -125,14 +131,35 @@ export default class VaultPensievePlugin extends Plugin {
 		return this.chats;
 	}
 
-	calculateCost(model: string, inputTokens: number, outputTokens: number): number {
-		const costs = MODEL_COSTS[model] ?? MODEL_COSTS["claude-sonnet-4-6"];
+	getCurrentModel(): string {
+		switch (this.settings.provider) {
+			case "anthropic":
+				return this.settings.model;
+			case "openai":
+				return this.settings.openaiModel;
+			case "openrouter":
+				return this.settings.openrouterModel;
+			case "ollama":
+				return this.settings.ollamaModel;
+		}
+		return this.settings.model;
+	}
+
+	supportsSpendTracking(): boolean {
+		return Object.prototype.hasOwnProperty.call(
+			MODEL_COSTS,
+			`${this.settings.provider}:${this.getCurrentModel()}`
+		);
+	}
+
+	calculateCost(provider: string, model: string, inputTokens: number, outputTokens: number): number {
+		const costs = MODEL_COSTS[`${provider}:${model}`];
+		if (!costs) return 0;
 		return inputTokens * costs.input + outputTokens * costs.output;
 	}
 
 	async recordUsage(inputTokens: number, outputTokens: number): Promise<void> {
-		// Local Ollama models have no cost — skip tracking
-		if (this.settings.provider === "ollama") return;
+		if (!this.supportsSpendTracking()) return;
 
 		const currentMonth = new Date().toISOString().slice(0, 7); // "2026-03"
 
@@ -143,7 +170,8 @@ export default class VaultPensievePlugin extends Plugin {
 		}
 
 		this.settings.usageDollars += this.calculateCost(
-			this.settings.model,
+			this.settings.provider,
+			this.getCurrentModel(),
 			inputTokens,
 			outputTokens
 		);
@@ -154,7 +182,7 @@ export default class VaultPensievePlugin extends Plugin {
 	}
 
 	isOverLimit(): boolean {
-		if (this.settings.provider === "ollama") return false;
+		if (!this.supportsSpendTracking()) return false;
 		if (!this.settings.monthlyLimitDollars) return false;
 		return this.settings.usageDollars >= this.settings.monthlyLimitDollars;
 	}
@@ -174,39 +202,64 @@ export default class VaultPensievePlugin extends Plugin {
 
 	getClient(): AIClient {
 		if (!this.client) {
-			if (this.settings.provider === "ollama") {
-				this.client = new OllamaClient(
-					this.settings.ollamaBaseUrl,
-					this.settings.ollamaModel
-				);
-			} else {
-				if (!this.settings.apiKey) {
-					throw new Error(
-						"API key not configured. Please set it in plugin settings."
+			switch (this.settings.provider) {
+				case "ollama":
+					this.client = new OllamaClient(
+						this.settings.ollamaBaseUrl,
+						this.settings.ollamaModel
 					);
-				}
-				this.client = new ClaudeClient(
-					this.settings.apiKey,
-					this.settings.model
-				);
+					break;
+				case "openai":
+					if (!this.settings.openaiApiKey) {
+						throw new Error(
+							"OpenAI API key not configured. Please set it in plugin settings."
+						);
+					}
+					this.client = new OpenAIClient(
+						this.settings.openaiApiKey,
+						this.settings.openaiModel
+					);
+					break;
+				case "openrouter":
+					if (!this.settings.openrouterApiKey) {
+						throw new Error(
+							"OpenRouter API key not configured. Please set it in plugin settings."
+						);
+					}
+					this.client = new OpenRouterClient(
+						this.settings.openrouterApiKey,
+						this.settings.openrouterModel
+					);
+					break;
+				case "anthropic":
+					if (!this.settings.apiKey) {
+						throw new Error(
+							"API key not configured. Please set it in plugin settings."
+						);
+					}
+					this.client = new ClaudeClient(
+						this.settings.apiKey,
+						this.settings.model
+					);
+					break;
 			}
 		}
 		return this.client;
 	}
 
 	async buildSystemPrompt(): Promise<string> {
-		const basePrompt = this.settings.provider === "ollama"
-			? `You are a helpful AI assistant integrated into Obsidian. You help the user with writing, organizing, and managing their notes.
+		const basePrompt = this.settings.provider === "anthropic"
+			? "You are Claude, an AI assistant integrated into Obsidian. You help the user with writing, organizing, and managing their notes. You have access to vault tools to read and modify files when asked."
+			: `You are a helpful AI assistant integrated into Obsidian. You help the user with writing, organizing, and managing their notes.
 
-You have access to vault tools. You MUST use them for any file operation — never write note content in your reply when a tool should be used instead.
+You have access to vault tools. You MUST use them for any file operation - never write note content in your reply when a tool should be used instead.
 
 Rules:
 - To create a note: call create_note. Do NOT write the note content as text in your response.
-- To edit or append to a note: call update_note. Do NOT describe the changes — make them.
+- To edit or append to a note: call update_note. Do NOT describe the changes - make them.
 - To answer questions about vault content: call read_note or search_notes first.
 - To find files: call list_files or get_vault_structure.
-- Only respond with text for conversation, explanations, or when no tool is needed.`
-			: "You are Claude, an AI assistant integrated into Obsidian. You help the user with writing, organizing, and managing their notes. You have access to vault tools to read and modify files when asked.";
+- Only respond with text for conversation, explanations, or when no tool is needed.`;
 		const parts: string[] = [basePrompt];
 
 		// Custom system prompt from settings
