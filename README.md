@@ -2,12 +2,6 @@
 
 An Obsidian plugin that integrates AI directly into your vault. Chat with Anthropic, OpenAI, OpenRouter, or a local Ollama model in a sidebar, run writing commands on your notes, use inline fast answers, and let the AI read and modify your vault through tool calling.
 
-![Chat sidebar](.github/assets/CleanShot%202026-03-26%20at%2015.24.59@2x.png)
-
-![Settings — Ollama](.github/assets/CleanShot%202026-03-26%20at%2015.25.25@2x.png)
-
-![Settings — Anthropic](.github/assets/CleanShot%202026-03-26%20at%2015.25.46@2x.png)
-
 ---
 
 ## First start
