@@ -2,21 +2,13 @@ import { Plugin } from "obsidian";
 import { keymap } from "@codemirror/view";
 import type { ClaudeChatView } from "./chat-view";
 import { handleFastAnswer } from "./commands/fast-answer";
-
-const MODEL_COSTS: Record<string, { input: number; output: number }> = {
-	"anthropic:claude-sonnet-4-6": { input: 3.0 / 1_000_000, output: 15.0 / 1_000_000 },
-	"anthropic:claude-haiku-4-5":  { input: 1.0 / 1_000_000, output: 5.0 / 1_000_000 },
-	"openai:gpt-5.4": { input: 2.5 / 1_000_000, output: 15.0 / 1_000_000 },
-	"openai:gpt-5.4-mini": { input: 0.75 / 1_000_000, output: 4.5 / 1_000_000 },
-	"openai:gpt-5.4-nano": { input: 0.2 / 1_000_000, output: 1.25 / 1_000_000 },
-	"openai:gpt-5-mini": { input: 0.25 / 1_000_000, output: 2.0 / 1_000_000 },
-};
 import type {
 	VaultPensieveSettings} from "./settings";
 import {
 	VaultPensieveSettingTab,
 	DEFAULT_SETTINGS,
 } from "./settings";
+import { LEGACY_MODEL_MIGRATIONS, MODEL_COSTS } from "./model-catalog";
 import type { AIClient } from "./claude-client";
 import { ClaudeClient } from "./claude-client";
 import { OllamaClient } from "./ollama-client";
@@ -98,6 +90,12 @@ export default class VaultPensievePlugin extends Plugin {
 	async loadSettings() {
 		const data = (await this.loadData()) ?? {};
 		this.settings = Object.assign({}, DEFAULT_SETTINGS, data);
+		this.settings.model =
+			LEGACY_MODEL_MIGRATIONS.anthropic?.[this.settings.model] ?? this.settings.model;
+		this.settings.openaiModel =
+			LEGACY_MODEL_MIGRATIONS.openai?.[this.settings.openaiModel] ?? this.settings.openaiModel;
+		this.settings.openrouterModel =
+			LEGACY_MODEL_MIGRATIONS.openrouter?.[this.settings.openrouterModel] ?? this.settings.openrouterModel;
 		this.chats = Array.isArray(data.chats) ? data.chats : [];
 	}
 

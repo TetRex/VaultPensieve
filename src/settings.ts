@@ -1,6 +1,12 @@
 import type { App} from "obsidian";
 import { Notice, PluginSettingTab, Setting } from "obsidian";
 import type VaultPensievePlugin from "./main";
+import {
+	ANTHROPIC_MODELS,
+	OLLAMA_DEFAULT_MODEL,
+	OPENAI_MODELS,
+	OPENROUTER_MODELS,
+} from "./model-catalog";
 
 export type AIProvider = "anthropic" | "openai" | "openrouter" | "ollama";
 
@@ -29,24 +35,12 @@ export const DEFAULT_SETTINGS: VaultPensieveSettings = {
 	openrouterApiKey: "",
 	openrouterModel: "openrouter/auto",
 	ollamaBaseUrl: "http://localhost:11434",
-	ollamaModel: "gemma4",
+	ollamaModel: OLLAMA_DEFAULT_MODEL,
 	customSystemPrompt: "",
 	monthlyLimitDollars: 0,
 	usageMonth: "",
 	usageDollars: 0,
 };
-
-const ANTHROPIC_MODELS = [
-	{ value: "claude-sonnet-4-6", label: "Claude Sonnet 4.6" },
-	{ value: "claude-haiku-4-5", label: "Claude Haiku 4.5" },
-];
-
-const OPENAI_MODELS = [
-	{ value: "gpt-5.4", label: "GPT-5.4" },
-	{ value: "gpt-5.4-mini", label: "GPT-5.4 mini" },
-	{ value: "gpt-5.4-nano", label: "GPT-5.4 nano" },
-	{ value: "gpt-5-mini", label: "GPT-5 mini" },
-];
 
 export class VaultPensieveSettingTab extends PluginSettingTab {
 	plugin: VaultPensievePlugin;
@@ -234,17 +228,24 @@ export class VaultPensieveSettingTab extends PluginSettingTab {
 
 			new Setting(containerEl)
 				.setName("Model")
-				.setDesc("Any OpenRouter model id, for example openrouter/auto or openai/gpt-5.4-mini.")
-				.addText((text) =>
-					text
-						.setPlaceholder("openrouter/auto")
+				.setDesc("Which OpenRouter model to use.")
+				.addDropdown((dropdown) => {
+					for (const m of OPENROUTER_MODELS) {
+						dropdown.addOption(m.value, m.label);
+					}
+					if (!OPENROUTER_MODELS.some(m => m.value === this.plugin.settings.openrouterModel)) {
+						dropdown.addOption(
+							this.plugin.settings.openrouterModel,
+							this.plugin.settings.openrouterModel
+						);
+					}
+					dropdown
 						.setValue(this.plugin.settings.openrouterModel)
-						.then((t) => t.inputEl.addClass("claude-setting-input-full"))
 						.onChange(async (value) => {
-							this.plugin.settings.openrouterModel = value.trim() || "openrouter/auto";
+							this.plugin.settings.openrouterModel = value;
 							await this.plugin.saveSettings();
-						})
-				);
+						});
+				});
 		} else {
 
 			if (ollamaModels.length > 0) {
@@ -275,11 +276,11 @@ export class VaultPensieveSettingTab extends PluginSettingTab {
 					.setDesc("Could not fetch installed models — enter a name manually, or check the URL and click \"Refresh models\".")
 					.addText((text) =>
 						text
-							.setPlaceholder("gemma4")
+							.setPlaceholder(OLLAMA_DEFAULT_MODEL)
 							.setValue(this.plugin.settings.ollamaModel)
 							.then((t) => t.inputEl.addClass("claude-setting-input-full"))
 							.onChange(async (value) => {
-								this.plugin.settings.ollamaModel = value.trim() || "gemma4";
+								this.plugin.settings.ollamaModel = value.trim() || OLLAMA_DEFAULT_MODEL;
 								await this.plugin.saveSettings();
 							})
 					);
