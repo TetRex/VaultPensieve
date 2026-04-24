@@ -4,7 +4,7 @@ import type { MessageParam } from "@anthropic-ai/sdk/resources/messages";
 import type VaultPensievePlugin from "./main";
 import type { SavedChat } from "./main";
 import { VAULT_TOOLS, createToolExecutor } from "./vault-tools";
-import { ANTHROPIC_MODELS, OPENAI_MODELS, OPENROUTER_MODELS } from "./model-catalog";
+import { ANTHROPIC_MODELS, GEMINI_MODELS, OPENAI_MODELS } from "./model-catalog";
 
 export const CHAT_VIEW_TYPE = "claude-chat-view";
 
@@ -86,14 +86,14 @@ export class ClaudeChatView extends ItemView {
 				if (m.value === this.plugin.settings.openaiModel) opt.selected = true;
 			}
 		} else {
-			for (const m of OPENROUTER_MODELS) {
+			for (const m of GEMINI_MODELS) {
 				const opt = this.modelSelect.createEl("option", { text: m.label, value: m.value });
-				if (m.value === this.plugin.settings.openrouterModel) opt.selected = true;
+				if (m.value === this.plugin.settings.geminiModel) opt.selected = true;
 			}
-			if (!OPENROUTER_MODELS.some(m => m.value === this.plugin.settings.openrouterModel)) {
+			if (!GEMINI_MODELS.some(m => m.value === this.plugin.settings.geminiModel)) {
 				this.modelSelect.createEl("option", {
-					text: this.plugin.settings.openrouterModel,
-					value: this.plugin.settings.openrouterModel,
+					text: this.plugin.settings.geminiModel,
+					value: this.plugin.settings.geminiModel,
 					attr: { selected: "true" },
 				});
 			}
@@ -121,10 +121,10 @@ export class ClaudeChatView extends ItemView {
 					new Notice(`Switched to ${label}`);
 					break;
 				}
-				case "openrouter":
-					this.plugin.settings.openrouterModel = modelValue;
+				case "gemini":
+					this.plugin.settings.geminiModel = modelValue;
 					await this.plugin.saveSettings();
-					new Notice(`Switched to ${modelValue}`);
+					new Notice(`Switched to ${GEMINI_MODELS.find(m => m.value === modelValue)?.label ?? modelValue}`);
 					break;
 			}
 		})());
