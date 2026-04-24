@@ -8,9 +8,10 @@ import {
 	VaultPensieveSettingTab,
 	DEFAULT_SETTINGS,
 } from "./settings";
-import { GEMINI_MODELS, LEGACY_MODEL_MIGRATIONS, MODEL_COSTS } from "./model-catalog";
+import { DEEPSEEK_MODELS, GEMINI_MODELS, LEGACY_MODEL_MIGRATIONS, MODEL_COSTS } from "./model-catalog";
 import type { AIClient } from "./claude-client";
 import { ClaudeClient } from "./claude-client";
+import { DeepSeekClient } from "./deepseek-client";
 import { GeminiClient } from "./gemini-client";
 import { OllamaClient } from "./ollama-client";
 import { OpenAIClient } from "./openai-client";
@@ -105,11 +106,19 @@ export default class VaultPensievePlugin extends Plugin {
 			LEGACY_MODEL_MIGRATIONS.openai?.[this.settings.openaiModel] ?? this.settings.openaiModel;
 		this.settings.geminiModel =
 			LEGACY_MODEL_MIGRATIONS.gemini?.[this.settings.geminiModel] ?? this.settings.geminiModel;
+		this.settings.deepseekModel =
+			LEGACY_MODEL_MIGRATIONS.deepseek?.[this.settings.deepseekModel] ?? this.settings.deepseekModel;
 		if (
 			this.settings.provider === "gemini" &&
 			!GEMINI_MODELS.some((model) => model.value === this.settings.geminiModel)
 		) {
 			this.settings.geminiModel = DEFAULT_SETTINGS.geminiModel;
+		}
+		if (
+			this.settings.provider === "deepseek" &&
+			!DEEPSEEK_MODELS.some((model) => model.value === this.settings.deepseekModel)
+		) {
+			this.settings.deepseekModel = DEFAULT_SETTINGS.deepseekModel;
 		}
 		this.chats = Array.isArray(data.chats) ? data.chats : [];
 	}
@@ -152,6 +161,8 @@ export default class VaultPensievePlugin extends Plugin {
 				return this.settings.openaiModel;
 			case "gemini":
 				return this.settings.geminiModel;
+			case "deepseek":
+				return this.settings.deepseekModel;
 			case "ollama":
 				return this.settings.ollamaModel;
 		}
@@ -242,6 +253,17 @@ export default class VaultPensievePlugin extends Plugin {
 					this.client = new GeminiClient(
 						this.settings.geminiApiKey,
 						this.settings.geminiModel
+					);
+					break;
+				case "deepseek":
+					if (!this.settings.deepseekApiKey) {
+						throw new Error(
+							"DeepSeek API key not configured. Please set it in plugin settings."
+						);
+					}
+					this.client = new DeepSeekClient(
+						this.settings.deepseekApiKey,
+						this.settings.deepseekModel
 					);
 					break;
 				case "anthropic":
