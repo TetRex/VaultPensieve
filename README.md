@@ -1,6 +1,6 @@
 # VaultPensieve
 
-An Obsidian plugin that integrates AI directly into your vault. Chat with Anthropic, OpenAI, Gemini, or a local Ollama model in a sidebar, run writing commands on your notes, use inline fast answers, and let the AI read and modify your vault through tool calling.
+An Obsidian plugin that integrates AI directly into your vault. Chat with Anthropic, OpenAI, Gemini, DeepSeek, or a local Ollama model in a sidebar, run writing commands on your notes, use inline fast answers, and let the AI read and modify your vault through tool calling.
 
 ---
 
@@ -80,7 +80,22 @@ You can switch Gemini models directly from the chat sidebar at any time.
 
 ---
 
-#### Option D — Ollama (local, free)
+#### Option D — DeepSeek
+
+Paste your DeepSeek API key into the **API key** field.
+
+The plugin currently exposes these DeepSeek models:
+
+| Model | Estimated cost used for tracking |
+|---|---|
+| DeepSeek V4 Flash | $0.14 / $0.28 per 1M input/output tokens |
+| DeepSeek V4 Pro | $1.74 / $3.48 per 1M input/output tokens |
+
+You can switch DeepSeek models directly from the chat sidebar at any time.
+
+---
+
+#### Option E — Ollama (local, free)
 
 Ollama runs AI models on your own machine. No API key or internet connection required.
 
@@ -102,7 +117,7 @@ This is the primary place to define tone, formatting preferences, writing constr
 
 In **Settings → VaultPensieve**, set a **Monthly spending limit** in dollars. Requests will be blocked once the limit is reached. The counter resets automatically on the first of each month.
 
-Spend tracking is available for Anthropic, OpenAI, and Gemini models in the built-in lists. It is not currently tracked for Ollama.
+Spend tracking is available for Anthropic, OpenAI, Gemini, and DeepSeek models in the built-in lists. It is not currently tracked for Ollama.
 
 ---
 
@@ -112,7 +127,7 @@ Spend tracking is available for Anthropic, OpenAI, and Gemini models in the buil
 
 Open the chat panel from the ribbon icon or via **Command Palette → Open VaultPensieve**.
 
-- **Model switcher** — change models without leaving the chat. Anthropic, OpenAI, and Gemini use built-in model lists. Ollama shows installed models when reachable
+- **Model switcher** — change models without leaving the chat. Anthropic, OpenAI, Gemini, and DeepSeek use built-in model lists. Ollama shows installed models when reachable
 - **Attach note** — click the paperclip to attach the currently open note as context. The note name appears as a chip; click × to detach before sending
 - **Chat history** — clock icon shows all saved conversations. Click any entry to resume it; × to delete
 - **New chat** — plus icon starts a fresh conversation (current chat is saved automatically)
@@ -180,6 +195,7 @@ AI provider (streaming)
   ├─ Anthropic API
   ├─ OpenAI API
   ├─ Gemini API
+  ├─ DeepSeek API
   └─ Ollama (/v1/chat/completions)
     │
     ├─ Text chunks → displayed incrementally in the chat bubble
@@ -199,9 +215,9 @@ Usage recorded (supported priced models only: tokens → estimated dollars, pers
 
 | Setting | Description |
 |---|---|
-| AI provider | Anthropic, OpenAI, Gemini, or Ollama |
-| API key | Provider-specific API key for Anthropic, OpenAI, or Gemini. Stored in plugin data, never logged |
-| Model | Claude model, OpenAI model, or Gemini model depending on the selected provider |
+| AI provider | Anthropic, OpenAI, Gemini, DeepSeek, or Ollama |
+| API key | Provider-specific API key for Anthropic, OpenAI, Gemini, or DeepSeek. Stored in plugin data, never logged |
+| Model | Claude model, OpenAI model, Gemini model, or DeepSeek model depending on the selected provider |
 | Ollama model | Select from models installed in Ollama, or enter a name manually |
 | Custom system prompt | Extra instructions appended to every request |
 | Monthly spending limit | Block requests above this dollar amount — 0 = no limit (supported tracked models only) |
@@ -214,4 +230,4 @@ Usage recorded (supported priced models only: tokens → estimated dollars, pers
 
 - API keys are stored via Obsidian's plugin data (`data.json`) and are never logged by the plugin
 - When using Ollama, note content stays on your machine unless your Ollama server is remote
-- When using Anthropic, OpenAI, or Gemini, the request content needed for chat or commands is sent to the selected provider
+- When using Anthropic, OpenAI, Gemini, or DeepSeek, the request content needed for chat or commands is sent to the selected provider
